@@ -100,6 +100,7 @@ vim.g.have_nerd_font = false
 
 -- Make line numbers default
 vim.opt.number = true
+vim.opt.relativenumber = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
 -- vim.opt.relativenumber = true
@@ -605,7 +606,41 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {
+          cmd = {
+            'clangd',
+            '--background-index',
+            '--clang-tidy',
+            '--log=verbose',
+          },
+          init_options = {
+            fallbackFlags = { '-std=c++17' },
+          },
+          --  keys = {
+          --    { ',a', '<cmd>ClangdSwitchSourceHeader<cr>', desc = 'Switch Source/Header (C/C++)' },
+          --  },
+          --  root_dir = function(fname)
+          --    return require('lspconfig.util').root_pattern('Makefile', 'CMakeLists.txt', 'configure.ac', 'configure.in', 'meson.build', 'build.ninja')(fname)
+          --      or require('lspconfig.util').root_pattern('compile_commands.json', 'compile_flags.txt')(fname)
+          --      or require('lspconfig.util').find_git_ancestor(fname)
+          --  end,
+          --  capabilities = {
+          --    offsetEncoding = { 'utf-16' },
+          --  },
+          --  cmd = {
+          --    'clangd',
+          --    '--background-index',
+          --    '--clang-tidy',
+          --    '--header-insertion=iwyu',
+          --    '--completion-style=detailed',
+          --    '--function-arg-placeholders',
+          --    '--fallback-style=llvm',
+          --  },
+          --  init_options = {
+          --    usePlaceholders = true,
+          --    clangdFileStatus = true,
+          --  },
+        },
         -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -888,7 +923,27 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = {
+        'bash',
+        'c',
+        'cmake',
+        'cpp',
+        'css',
+        'python',
+        'regex',
+        'rust',
+        'toml',
+        'yaml',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+      },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -917,12 +972,12 @@ require('lazy').setup({
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
-  -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.debug',
+  require 'kickstart.plugins.indent_line',
+  require 'kickstart.plugins.lint',
+  require 'kickstart.plugins.autopairs',
+  require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
@@ -951,6 +1006,14 @@ require('lazy').setup({
     },
   },
 })
+
+-- NOTE: Custom stuff idk
+
+-- Switch between header and source in a c/c++ enviroment
+vim.api.nvim_set_keymap('n', ',a', ':ClangdSwitchSourceHeader<CR>', { noremap = true, silent = true })
+
+-- Switch to previous buffer
+vim.api.nvim_set_keymap('n', '<leader>p', ':b#<CR>', { noremap = true, silent = true })
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et

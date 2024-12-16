@@ -91,7 +91,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.opt`
@@ -231,6 +231,10 @@ vim.opt.rtp:prepend(lazypath)
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+  {
+    'github/copilot.vim', -- COPILOT
+    event = 'InsertEnter',
+  },
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -612,9 +616,15 @@ require('lazy').setup({
             '--background-index',
             '--clang-tidy',
             '--log=verbose',
+            '--header-insertion=iwyu',
+            '--completion-style=detailed',
+            '--function-arg-placeholders',
+            '--fallback-style=llvm',
           },
           init_options = {
             fallbackFlags = { '-std=c++17' },
+            usePlaceholders = true,
+            clangdFileStatus = true,
           },
           --  keys = {
           --    { ',a', '<cmd>ClangdSwitchSourceHeader<cr>', desc = 'Switch Source/Header (C/C++)' },
@@ -720,7 +730,7 @@ require('lazy').setup({
         -- Disable "format_on_save lsp_fallback" for languages that don't
         -- have a well standardized coding style. You can add additional
         -- languages here or re-enable it for the disabled ones.
-        local disable_filetypes = { c = true, cpp = true }
+        local disable_filetypes = { c = true }
         local lsp_format_opt
         if disable_filetypes[vim.bo[bufnr].filetype] then
           lsp_format_opt = 'never'
@@ -734,6 +744,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        cpp = { 'clang-format' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -903,7 +914,20 @@ require('lazy').setup({
       --  and try some other statusline plugin
       local statusline = require 'mini.statusline'
       -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
+      statusline.setup {
+        use_icons = vim.g.have_nerd_font,
+        -- content = {
+        --   active = function()
+        --     return table.concat({
+        --       '%f',
+        --       '%=',
+        --       '%p%%',
+        --       '%l:%c',
+        --     }, ' ')
+        --   end,
+        --   inactive = nil,
+        -- },
+      }
 
       -- You can configure sections in the statusline by overriding their
       -- default behavior. For example, here we set the section for
@@ -1015,5 +1039,22 @@ vim.api.nvim_set_keymap('n', ',a', ':ClangdSwitchSourceHeader<CR>', { noremap = 
 -- Switch to previous buffer
 vim.api.nvim_set_keymap('n', '<leader>p', ':b#<CR>', { noremap = true, silent = true })
 
+-- Treat .qss files as .css
+-- vim.filetype.add {
+--   extension = { 
+--     qss = 'css',
+--   },
+-- }
+
+-- cpp GOTO References
+vim.keymap.set('n', '<leader>gr', vim.lsp.buf.references, { desc = 'LSP: [G]oto [R]eferences' })
+
+-- comment with Ctrl+/
+vim.keymap.set('n', '<C-_>', 'gcc', { desc = 'Toggle comment on current line' })
+vim.keymap.set('v', '<C-_>', 'gc', { desc = 'Toggle comment on selected lines' })
+
+-- Copilot
+vim.g.copilot_no_tab_map = true
+vim.api.nvim_set_keymap("i", "<C-p>", 'copilot#Accept("<CR>")', { expr = true, silent = true })
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et

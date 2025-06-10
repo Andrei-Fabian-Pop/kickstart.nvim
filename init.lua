@@ -461,8 +461,8 @@ require('lazy').setup({
     'neovim/nvim-lspconfig',
     dependencies = {
       -- Automatically install LSPs and related tools to stdpath for Neovim
-      { 'williamboman/mason.nvim', config = true }, -- NOTE: Must be loaded before dependants
-      'williamboman/mason-lspconfig.nvim',
+      { 'mason-org/mason.nvim', config = true }, -- NOTE: Must be loaded before dependants
+      'mason-org/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
 
       -- Useful status updates for LSP.
@@ -620,6 +620,8 @@ require('lazy').setup({
             '--completion-style=detailed',
             '--function-arg-placeholders',
             '--fallback-style=llvm',
+            '--pch-storage=memory', -- Speeds up analysis
+            '--enable-config',
           },
           init_options = {
             fallbackFlags = { '-std=c++17' },
@@ -652,7 +654,8 @@ require('lazy').setup({
           --  },
         },
         -- gopls = {},
-        -- pyright = {},
+        pyright = {},
+        bashls = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -685,7 +688,8 @@ require('lazy').setup({
       --    :Mason
       --
       --  You can press `g?` for help in this menu.
-      require('mason').setup()
+      -- NOTE: Commented this bs
+      -- require('mason').setup()
 
       -- You can add other tools here that you want Mason to install
       -- for you, so that they are available from within Neovim.
@@ -916,17 +920,17 @@ require('lazy').setup({
       -- set use_icons to true if you have a Nerd Font
       statusline.setup {
         use_icons = vim.g.have_nerd_font,
-        -- content = {
-        --   active = function()
-        --     return table.concat({
-        --       '%f',
-        --       '%=',
-        --       '%p%%',
-        --       '%l:%c',
-        --     }, ' ')
-        --   end,
-        --   inactive = nil,
-        -- },
+        content = {
+          -- active = function()
+          --   return table.concat({
+          --     '%f',
+          --     '%=',
+          --     '%p%%',
+          --     '%l:%c',
+          --   }, ' ')
+          -- end,
+          inactive = nil,
+        },
       }
 
       -- You can configure sections in the statusline by overriding their
@@ -934,7 +938,8 @@ require('lazy').setup({
       -- cursor location to LINE:COLUMN
       ---@diagnostic disable-next-line: duplicate-set-field
       statusline.section_location = function()
-        return '%2l:%-2v'
+        -- %p%%
+        return '%2l:%-2v ## %p%%'
       end
 
       -- ... and there is more!
@@ -1041,7 +1046,7 @@ vim.api.nvim_set_keymap('n', '<leader>p', ':b#<CR>', { noremap = true, silent = 
 
 -- Treat .qss files as .css
 -- vim.filetype.add {
---   extension = { 
+--   extension = {
 --     qss = 'css',
 --   },
 -- }
@@ -1055,6 +1060,27 @@ vim.keymap.set('v', '<C-_>', 'gc', { desc = 'Toggle comment on selected lines' }
 
 -- Copilot
 vim.g.copilot_no_tab_map = true
-vim.api.nvim_set_keymap("i", "<C-p>", 'copilot#Accept("<CR>")', { expr = true, silent = true })
+vim.api.nvim_set_keymap('i', '<C-p>', 'copilot#Accept("<CR>")', { expr = true, silent = true })
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+
+-- Autoformat is sometimes too stupid
+vim.api.nvim_create_user_command('FormatDisable', function(args)
+  if args.bang then
+    -- FormatDisable! will disable formatting just for this buffer
+    vim.b.disable_autoformat = true
+  else
+    vim.g.disable_autoformat = true
+  end
+end, {
+  desc = 'Disable autoformat-on-save',
+  bang = true,
+})
+vim.api.nvim_create_user_command('FormatEnable', function()
+  vim.b.disable_autoformat = false
+  vim.g.disable_autoformat = false
+end, {
+  desc = 'Re-enable autoformat-on-save',
+})
+
+vim.api.nvim_set_keymap('n', '<leader>e', '<cmd>lua vim.diagnostic.open_float(nil, {scope="line"})<CR>', { noremap = true, silent = true })

@@ -18,7 +18,7 @@ return {
     'nvim-neotest/nvim-nio',
 
     -- Installs the debug adapters for you
-    'williamboman/mason.nvim',
+    'mason-org/mason.nvim',
     'jay-babu/mason-nvim-dap.nvim',
 
     -- Add your own debuggers here
@@ -64,8 +64,43 @@ return {
       ensure_installed = {
         -- Update this to ensure that you have the debuggers for the langs you want
         'delve',
+        'codelldb',
       },
     }
+
+    -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    -- C/C++/Rust via codelldb (requires codelldb ≥1.11.0)
+    -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    -- Adapter definition
+    dap.adapters.codelldb = {
+      type = 'executable', -- Use stdio transport
+      command = 'codelldb', -- Or absolute path to codelldb
+      -- detached = false,        -- Uncomment on Windows if needed
+    } -- :contentReference[oaicite:0]{index=0}
+
+    -- Configuration for C++
+    dap.configurations.cpp = {
+      {
+        name = 'Launch C/C++ executable',
+        type = 'codelldb',
+        request = 'launch',
+        program = function()
+          return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+        end,
+        cwd = '${workspaceFolder}',
+        stopOnEntry = false,
+        args = {}, -- e.g. { "--foo", "bar" }
+      },
+    } -- :contentReference[oaicite:1]{index=1}
+
+    -- Re‑use the same setup for C and Rust
+    dap.configurations.c = dap.configurations.cpp
+    dap.configurations.rust = dap.configurations.cpp
+
+    -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    -- Existing DAP‑UI setup (unchanged)
+    -- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     -- Dap UI setup
     -- For more information, see |:help nvim-dap-ui|

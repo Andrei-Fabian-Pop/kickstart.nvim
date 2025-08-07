@@ -232,8 +232,8 @@ require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
   {
-    'github/copilot.vim', -- COPILOT
-    event = 'InsertEnter',
+    -- 'github/copilot.vim', -- COPILOT
+    -- event = 'InsertEnter',
   },
 
   -- NOTE: Plugins can also be added by using a table,
@@ -1059,8 +1059,8 @@ vim.keymap.set('n', '<C-_>', 'gcc', { desc = 'Toggle comment on current line' })
 vim.keymap.set('v', '<C-_>', 'gc', { desc = 'Toggle comment on selected lines' })
 
 -- Copilot
-vim.g.copilot_no_tab_map = true
-vim.api.nvim_set_keymap('i', '<C-p>', 'copilot#Accept("<CR>")', { expr = true, silent = true })
+-- vim.g.copilot_no_tab_map = true
+-- vim.api.nvim_set_keymap('i', '<C-p>', 'copilot#Accept("<CR>")', { expr = true, silent = true })
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
 

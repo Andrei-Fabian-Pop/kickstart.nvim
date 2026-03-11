@@ -663,7 +663,7 @@ require('lazy').setup({
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
+        ts_ls = {},
         --
 
         lua_ls = {
@@ -696,6 +696,9 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'prettier',
+        'prettierd',
+        'eslint_d',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -742,7 +745,7 @@ require('lazy').setup({
           lsp_format_opt = 'fallback'
         end
         return {
-          timeout_ms = 500,
+          timeout_ms = 10000,
           lsp_format = lsp_format_opt,
         }
       end,
@@ -750,17 +753,23 @@ require('lazy').setup({
         lua = { 'stylua' },
         cpp = { 'clang-format' },
         c = { 'clang-format' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        typescript = { 'eslint_d' },
+        javascript = { 'eslint_d' },
+        typescriptreact = { 'eslint_d' },
+        javascriptreact = { 'eslint_d' },
+        json = { 'prettierd', 'prettier', stop_after_first = true },
       },
       formatters = {
         ['clang-format'] = {
           -- This ensures clang-format looks for config files in project directory first,
           -- then falls back to ~/.clang-format if none found
           prepend_args = { '--fallback-style=file' },
+        },
+        eslint_d = {
+          require_cwd = true,
+          cwd = function(self, ctx)
+            return require('conform.util').root_file({ '.git', 'yarn.lock', 'package-lock.json' })(self, ctx)
+          end,
         },
       },
     },
@@ -1092,3 +1101,40 @@ end, {
 })
 
 vim.api.nvim_set_keymap('n', '<leader>e', '<cmd>lua vim.diagnostic.open_float(nil, {scope="line"})<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>]', '<cmd>lua vim.diagnostic.goto_next()<CR>', { noremap = true, silent = true, desc = 'Next diagnostic' })
+vim.api.nvim_set_keymap('n', '<leader>[', '<cmd>lua vim.diagnostic.goto_prev()<CR>', { noremap = true, silent = true, desc = 'Previous diagnostic' })
+
+-- Run VSCode extension in development mode from current directory
+vim.api.nvim_create_user_command('VscodeExtRun', function()
+  local cwd = vim.fn.getcwd()
+  vim.notify('Building extension...', vim.log.levels.INFO)
+  vim.fn.jobstart({ 'yarn', 'build:all' }, {
+    cwd = cwd,
+    stdout_buffered = false,
+    stderr_buffered = false,
+    on_stdout = function(_, data)
+      for _, line in ipairs(data) do
+        if line ~= '' then
+          print(line)
+        end
+      end
+    end,
+    on_stderr = function(_, data)
+      for _, line in ipairs(data) do
+        if line ~= '' then
+          print(line)
+        end
+      end
+    end,
+    on_exit = function(_, exit_code)
+      if exit_code == 0 then
+        vim.notify('Build succeeded. Launching VSCode...', vim.log.levels.INFO)
+        vim.fn.jobstart({ 'code', '--extensionDevelopmentPath=' .. cwd }, { detach = true })
+      else
+        vim.notify('Build failed with exit code ' .. exit_code, vim.log.levels.ERROR)
+      end
+    end,
+  })
+end, {
+  desc = 'Build and run VSCode extension from current directory',
+})

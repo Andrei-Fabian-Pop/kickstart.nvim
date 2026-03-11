@@ -624,7 +624,7 @@ require('lazy').setup({
             '--enable-config',
           },
           init_options = {
-            fallbackFlags = { '-std=c++17' },
+            -- fallbackFlags = { '-std=c++17' },
             usePlaceholders = true,
             clangdFileStatus = true,
           },
@@ -749,11 +749,19 @@ require('lazy').setup({
       formatters_by_ft = {
         lua = { 'stylua' },
         cpp = { 'clang-format' },
+        c = { 'clang-format' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
         -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      },
+      formatters = {
+        ['clang-format'] = {
+          -- This ensures clang-format looks for config files in project directory first,
+          -- then falls back to ~/.clang-format if none found
+          prepend_args = { '--fallback-style=file' },
+        },
       },
     },
   },

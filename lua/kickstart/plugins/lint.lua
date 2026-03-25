@@ -7,11 +7,17 @@ return {
       local lint = require 'lint'
       lint.linters_by_ft = {
         markdown = { 'markdownlint' },
-        typescript = { 'eslint_d' },
-        javascript = { 'eslint_d' },
-        typescriptreact = { 'eslint_d' },
-        javascriptreact = { 'eslint_d' },
+        typescript = { 'eslint_d', 'cspell' },
+        javascript = { 'eslint_d', 'cspell' },
+        typescriptreact = { 'eslint_d', 'cspell' },
+        javascriptreact = { 'eslint_d', 'cspell' },
       }
+
+      -- Configure cspell to use user-wide dictionary
+      local cspell = lint.linters.cspell
+      -- Insert -c config before the last arg (stdin://)
+      table.insert(cspell.args, #cspell.args, '-c')
+      table.insert(cspell.args, #cspell.args, vim.fn.expand('~/.config/cspell/cspell.json'))
 
       -- To allow other plugins to add linters to require('lint').linters_by_ft,
       -- instead set linters_by_ft like this:

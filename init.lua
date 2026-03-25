@@ -100,7 +100,6 @@ vim.g.have_nerd_font = true
 
 -- Make line numbers default
 vim.opt.number = true
-vim.opt.relativenumber = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
 -- vim.opt.relativenumber = true
@@ -131,6 +130,8 @@ vim.opt.smartcase = true
 
 -- Keep signcolumn on by default
 vim.opt.signcolumn = 'yes'
+
+
 
 -- Decrease update time
 vim.opt.updatetime = 250
@@ -680,6 +681,7 @@ require('lazy').setup({
             },
           },
         },
+
       }
 
       -- Ensure the servers and tools above are installed
@@ -699,6 +701,7 @@ require('lazy').setup({
         'prettier',
         'prettierd',
         'eslint_d',
+        'cspell',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -839,16 +842,13 @@ require('lazy').setup({
           ['<C-b>'] = cmp.mapping.scroll_docs(-4),
           ['<C-f>'] = cmp.mapping.scroll_docs(4),
 
-          -- Accept ([y]es) the completion.
+          -- Accept the completion with Tab.
           --  This will auto-import if your LSP supports it.
           --  This will expand snippets if the LSP sent a snippet.
-          ['<C-y>'] = cmp.mapping.confirm { select = true },
+          ['<Tab>'] = cmp.mapping.confirm { select = true },
 
-          -- If you prefer more traditional completion keymaps,
-          -- you can uncomment the following lines
-          --['<CR>'] = cmp.mapping.confirm { select = true },
-          --['<Tab>'] = cmp.mapping.select_next_item(),
-          --['<S-Tab>'] = cmp.mapping.select_prev_item(),
+          -- Also keep Ctrl+y as alternative
+          ['<C-y>'] = cmp.mapping.confirm { select = true },
 
           -- Manually trigger a completion from nvim-cmp.
           --  Generally you don't need this, because nvim-cmp will display
@@ -1024,6 +1024,7 @@ require('lazy').setup({
   require 'kickstart.plugins.autopairs',
   require 'kickstart.plugins.neo-tree',
   require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.neotest',
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
@@ -1100,9 +1101,68 @@ end, {
   desc = 'Re-enable autoformat-on-save',
 })
 
+-- Filter out TypeScript "declared but never read" warnings for underscore-prefixed variables
+local original_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
+vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+  result.diagnostics = vim.tbl_filter(function(diagnostic)
+    -- Keep diagnostic unless it's 6133 for underscore-prefixed variables
+    if diagnostic.code == 6133 and diagnostic.message:match("^'_") then
+      return false
+    end
+    return true
+  end, result.diagnostics)
+  original_handler(err, result, ctx, config)
+end
+
 vim.api.nvim_set_keymap('n', '<leader>e', '<cmd>lua vim.diagnostic.open_float(nil, {scope="line"})<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>]', '<cmd>lua vim.diagnostic.goto_next()<CR>', { noremap = true, silent = true, desc = 'Next diagnostic' })
 vim.api.nvim_set_keymap('n', '<leader>[', '<cmd>lua vim.diagnostic.goto_prev()<CR>', { noremap = true, silent = true, desc = 'Previous diagnostic' })
+
+-- Spell-like keybindings for cspell
+local cspell_user_path = vim.fn.expand('~/.config/cspell/cspell.json')
+
+vim.keymap.set('n', 'zg', function()
+  local word = vim.fn.expand('<cword>')
+  local cspell = {}
+
+  -- Ensure directory exists
+  vim.fn.mkdir(vim.fn.fnamemodify(cspell_user_path, ':h'), 'p')
+
+  -- Read existing cspell.json if it exists
+  local file = io.open(cspell_user_path, 'r')
+  if file then
+    local content = file:read('*a')
+    file:close()
+    if content and content ~= '' then
+      cspell = vim.json.decode(content) or {}
+    end
+  end
+
+  -- Add word to dictionary
+  cspell.words = cspell.words or {}
+  if not vim.tbl_contains(cspell.words, word) then
+    table.insert(cspell.words, word)
+    table.sort(cspell.words)
+  end
+
+  -- Write back
+  file = io.open(cspell_user_path, 'w')
+  if file then
+    file:write(vim.json.encode(cspell))
+    file:close()
+    vim.notify('Added "' .. word .. '" to cspell dictionary', vim.log.levels.INFO)
+    -- Re-lint to update diagnostics
+    require('lint').try_lint()
+  end
+end, { desc = 'Add word to cspell dictionary' })
+
+vim.keymap.set('n', ']s', function()
+  vim.diagnostic.goto_next({ float = true })
+end, { desc = 'Next spelling error' })
+
+vim.keymap.set('n', '[s', function()
+  vim.diagnostic.goto_prev({ float = true })
+end, { desc = 'Previous spelling error' })
 
 -- Run VSCode extension in development mode from current directory
 vim.api.nvim_create_user_command('VscodeExtRun', function()

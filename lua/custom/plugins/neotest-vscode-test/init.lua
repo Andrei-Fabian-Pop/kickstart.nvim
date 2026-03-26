@@ -4,11 +4,10 @@
 ---This adapter allows running Mocha tests that require the VSCode runtime
 ---environment, which cannot be run with standard test runners.
 
-local async = require("neotest.async")
-local lib = require("neotest.lib")
+local lib = require 'neotest.lib'
 
 ---@type neotest.Adapter
-local M = { name = "neotest-vscode-test" }
+local M = { name = 'neotest-vscode-test' }
 
 ---@class VscodeTestConfig
 ---@field vscode_test_cmd? string[] Command to run vscode-test (default: {"npx", "vscode-test"})
@@ -18,17 +17,17 @@ local M = { name = "neotest-vscode-test" }
 
 ---@type VscodeTestConfig
 local config = {
-  vscode_test_cmd = { "npx", "vscode-test" },
+  vscode_test_cmd = { 'npx', 'vscode-test' },
   compile_cmd = nil,
-  root_patterns = { ".vscode-test.mjs", ".vscode-test.js", "package.json" },
-  test_file_patterns = { "%.test%.[tj]s$", "%.spec%.[tj]s$" },
+  root_patterns = { '.vscode-test.mjs', '.vscode-test.js', 'package.json' },
+  test_file_patterns = { '%.test%.[tj]s$', '%.spec%.[tj]s$' },
 }
 
 ---Configure the adapter
 ---@param opts VscodeTestConfig
 ---@return neotest.Adapter
 function M.setup(opts)
-  config = vim.tbl_deep_extend("force", config, opts or {})
+  config = vim.tbl_deep_extend('force', config, opts or {})
   return M
 end
 
@@ -42,17 +41,17 @@ function M.root(path)
   end
 
   -- Verify this is a vscode-test project
-  local vscode_test_config = root .. "/.vscode-test.mjs"
+  local vscode_test_config = root .. '/.vscode-test.mjs'
   if vim.fn.filereadable(vscode_test_config) == 1 then
     return root
   end
 
   -- Check package.json for @vscode/test-cli
-  local package_json = root .. "/package.json"
+  local package_json = root .. '/package.json'
   if vim.fn.filereadable(package_json) == 1 then
     local lines = vim.fn.readfile(package_json)
-    local content = table.concat(lines, "\n")
-    if content:match("@vscode/test%-cli") then
+    local content = table.concat(lines, '\n')
+    if content:match '@vscode/test%-cli' then
       return root
     end
   end
@@ -62,18 +61,16 @@ end
 
 ---Filter test directories
 ---@param name string
----@param rel_path string
----@param root string
 ---@return boolean
-function M.filter_dir(name, rel_path, root)
+function M.filter_dir(name, _, _)
   -- Skip common non-test directories
   local dominated_dirs = {
-    "node_modules",
-    ".git",
-    "dist",
-    "out",
-    ".vscode-test",
-    "coverage",
+    'node_modules',
+    '.git',
+    'dist',
+    'out',
+    '.vscode-test',
+    'coverage',
   }
   for _, dir in ipairs(dominated_dirs) do
     if name == dir then
@@ -169,14 +166,14 @@ function M.discover_positions(path)
     require_namespaces = false,
     position_id = function(position, namespaces)
       return table.concat(
-        vim.tbl_flatten({
+        vim.tbl_flatten {
           position.path,
           vim.tbl_map(function(pos)
             return pos.name
           end, namespaces),
           position.name,
-        }),
-        "::"
+        },
+        '::'
       )
     end,
   })
@@ -196,15 +193,15 @@ function M.build_spec(args)
 
   -- Build grep pattern for the test
   local grep_pattern
-  if position.type == "test" then
+  if position.type == 'test' then
     -- Strip surrounding quotes from test name (treesitter captures include them)
     local test_name = position.name:gsub('^["\']', ''):gsub('["\']$', '')
     -- Escape special regex characters in test name
-    grep_pattern = test_name:gsub("([%(%)%[%]%.%*%+%?%^%$])", "\\%1")
-  elseif position.type == "namespace" then
+    grep_pattern = test_name:gsub('([%(%)%[%]%.%*%+%?%^%$])', '\\%1')
+  elseif position.type == 'namespace' then
     local ns_name = position.name:gsub('^["\']', ''):gsub('["\']$', '')
-    grep_pattern = "^" .. ns_name:gsub("([%(%)%[%]%.%*%+%?%^%$])", "\\%1")
-  elseif position.type == "file" then
+    grep_pattern = '^' .. ns_name:gsub('([%(%)%[%]%.%*%+%?%^%$])', '\\%1')
+  elseif position.type == 'file' then
     -- Run all tests in file - use file path pattern
     grep_pattern = nil
   else
@@ -216,7 +213,7 @@ function M.build_spec(args)
   local cmd = vim.list_extend({}, config.vscode_test_cmd)
 
   if grep_pattern then
-    table.insert(cmd, "--grep")
+    table.insert(cmd, '--grep')
     table.insert(cmd, grep_pattern)
   end
 
@@ -224,12 +221,12 @@ function M.build_spec(args)
   local compile_cmd = config.compile_cmd
   if not compile_cmd then
     -- Check if compile-tests script exists in package.json
-    local package_json = root .. "/package.json"
+    local package_json = root .. '/package.json'
     if vim.fn.filereadable(package_json) == 1 then
       local lines = vim.fn.readfile(package_json)
-      local content = table.concat(lines, "\n")
-      if content:match('"compile%-tests"') then
-        compile_cmd = { "yarn", "run", "compile-tests" }
+      local content = table.concat(lines, '\n')
+      if content:match '"compile%-tests"' then
+        compile_cmd = { 'yarn', 'run', 'compile-tests' }
       end
     end
   end
@@ -242,13 +239,13 @@ function M.build_spec(args)
     local function shell_escape(arg)
       return "'" .. arg:gsub("'", "'\\''") .. "'"
     end
-    local compile_str = table.concat(compile_cmd, " ")
+    local compile_str = table.concat(compile_cmd, ' ')
     local test_parts = {}
     for _, arg in ipairs(cmd) do
       table.insert(test_parts, shell_escape(arg))
     end
-    local test_str = table.concat(test_parts, " ")
-    full_cmd = { "sh", "-c", compile_str .. " && " .. test_str }
+    local test_str = table.concat(test_parts, ' ')
+    full_cmd = { 'sh', '-c', compile_str .. ' && ' .. test_str }
   else
     full_cmd = cmd
   end
@@ -262,8 +259,8 @@ function M.build_spec(args)
     },
     env = {
       -- Disable color codes for easier parsing
-      FORCE_COLOR = "0",
-      NO_COLOR = "1",
+      FORCE_COLOR = '0',
+      NO_COLOR = '1',
     },
   }
 end
@@ -275,32 +272,31 @@ local function parse_mocha_output(output)
   local results = {}
 
   -- Match passing tests: "✓ test name" or "√ test name" (Windows)
-  for test_name in output:gmatch("[✓√]%s+(.-)%s*\n") do
-    test_name = test_name:gsub("%s*%(.-%)%s*$", "") -- Remove timing info
-    results[test_name] = { status = "passed" }
+  for test_name in output:gmatch '[✓√]%s+(.-)%s*\n' do
+    test_name = test_name:gsub('%s*%(.-%)%s*$', '') -- Remove timing info
+    results[test_name] = { status = 'passed' }
   end
 
   -- Match failing tests: "1) test name" or "  1) test name"
   -- Mocha indents failed test names with number prefix
-  for test_name in output:gmatch("%s+%d+%)%s+([^\n]+)") do
-    test_name = test_name:gsub("%s+$", "") -- Trim trailing whitespace
+  for test_name in output:gmatch '%s+%d+%)%s+([^\n]+)' do
+    test_name = test_name:gsub('%s+$', '') -- Trim trailing whitespace
     -- Find the error message after "AssertionError" or similar
-    local error_msg = output:match("AssertionError[^\n]*:%s*([^\n]+)")
-      or output:match("Error:%s*([^\n]+)")
+    local error_msg = output:match 'AssertionError[^\n]*:%s*([^\n]+)' or output:match 'Error:%s*([^\n]+)'
     results[test_name] = {
-      status = "failed",
+      status = 'failed',
       message = error_msg,
     }
   end
 
   -- Match skipped tests: "- test name"
-  for test_name in output:gmatch("%s%-%s+(.-)%s*\n") do
-    results[test_name] = { status = "skipped" }
+  for test_name in output:gmatch '%s%-%s+(.-)%s*\n' do
+    results[test_name] = { status = 'skipped' }
   end
 
   -- Parse counts: "X passing" and "X failing"
-  local passing_count = tonumber(output:match("(%d+) passing")) or 0
-  local failing_count = tonumber(output:match("(%d+) failing")) or 0
+  local passing_count = tonumber(output:match '(%d+) passing') or 0
+  local failing_count = tonumber(output:match '(%d+) failing') or 0
 
   return results, passing_count, failing_count
 end
@@ -318,7 +314,7 @@ local function process_node(node, parsed, passing_count, failing_count, output_p
     return
   end
 
-  if pos.type == "test" then
+  if pos.type == 'test' then
     -- Try to find matching result
     local test_result = parsed[pos.name]
 
@@ -331,25 +327,25 @@ local function process_node(node, parsed, passing_count, failing_count, output_p
     elseif failing_count > 0 and passing_count == 0 then
       -- Only failures, no passes - mark as failed
       results[pos.id] = {
-        status = "failed",
+        status = 'failed',
         output = output_path,
       }
     elseif passing_count > 0 and failing_count == 0 then
       -- Only passes, no failures - mark as passed
       results[pos.id] = {
-        status = "passed",
+        status = 'passed',
         output = output_path,
       }
     elseif failing_count > 0 then
       -- Mixed results but we couldn't parse - assume failed to be safe
       results[pos.id] = {
-        status = "failed",
+        status = 'failed',
         output = output_path,
       }
     else
       -- No results found
       results[pos.id] = {
-        status = "skipped",
+        status = 'skipped',
         output = output_path,
       }
     end
@@ -362,17 +358,17 @@ local function process_node(node, parsed, passing_count, failing_count, output_p
   end
 
   -- Aggregate status for namespaces/files after children are processed
-  if pos.type == "file" or pos.type == "namespace" then
-    local dominated_status = "passed"
+  if pos.type == 'file' or pos.type == 'namespace' then
+    local dominated_status = 'passed'
     for _, child in ipairs(children) do
       local child_pos = child:data()
       if child_pos and results[child_pos.id] then
         local child_status = results[child_pos.id].status
-        if child_status == "failed" then
-          dominated_status = "failed"
+        if child_status == 'failed' then
+          dominated_status = 'failed'
           break
-        elseif child_status == "skipped" and dominated_status ~= "failed" then
-          dominated_status = "skipped"
+        elseif child_status == 'skipped' and dominated_status ~= 'failed' then
+          dominated_status = 'skipped'
         end
       end
     end
@@ -385,11 +381,10 @@ end
 
 ---Process test results
 ---@async
----@param spec neotest.RunSpec
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
 ---@return table<string, neotest.Result>
-function M.results(spec, result, tree)
+function M.results(_, result, tree)
   local results = {}
   local output_path = result.output
 
@@ -397,7 +392,7 @@ function M.results(spec, result, tree)
     return results
   end
 
-  local output = lib.files.read(output_path) or ""
+  local output = lib.files.read(output_path) or ''
   local parsed, passing_count, failing_count = parse_mocha_output(output)
 
   -- Process the tree recursively

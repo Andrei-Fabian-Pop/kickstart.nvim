@@ -57,6 +57,11 @@ return {
             return false
           end,
         }),
+        require('neotest-vscode-test').setup({
+          -- Optional: override defaults
+          -- vscode_test_cmd = { "npx", "vscode-test" },
+          -- compile_cmd = { "yarn", "run", "compile-tests" },
+        }),
       },
     })
   end,

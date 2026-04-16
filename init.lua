@@ -131,8 +131,6 @@ vim.opt.smartcase = true
 -- Keep signcolumn on by default
 vim.opt.signcolumn = 'yes'
 
-
-
 -- Decrease update time
 vim.opt.updatetime = 250
 
@@ -681,7 +679,6 @@ require('lazy').setup({
             },
           },
         },
-
       }
 
       -- Ensure the servers and tools above are installed
@@ -771,7 +768,7 @@ require('lazy').setup({
         eslint_d = {
           require_cwd = true,
           cwd = function(self, ctx)
-            return require('conform.util').root_file({ '.git', 'yarn.lock', 'package-lock.json' })(self, ctx)
+            return require('conform.util').root_file { '.git', 'yarn.lock', 'package-lock.json' }(self, ctx)
           end,
         },
       },
@@ -1102,11 +1099,11 @@ end, {
 })
 
 -- Filter out TypeScript "declared but never read" warnings for underscore-prefixed variables
-local original_handler = vim.lsp.handlers["textDocument/publishDiagnostics"]
-vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx, config)
+local original_handler = vim.lsp.handlers['textDocument/publishDiagnostics']
+vim.lsp.handlers['textDocument/publishDiagnostics'] = function(err, result, ctx, config)
   result.diagnostics = vim.tbl_filter(function(diagnostic)
     -- Keep diagnostic unless it's 6133 for underscore-prefixed variables
-    if diagnostic.code == 6133 and diagnostic.message:match("^'_") then
+    if diagnostic.code == 6133 and diagnostic.message:match "^'_" then
       return false
     end
     return true
@@ -1114,15 +1111,18 @@ vim.lsp.handlers["textDocument/publishDiagnostics"] = function(err, result, ctx,
   original_handler(err, result, ctx, config)
 end
 
-vim.api.nvim_set_keymap('n', '<leader>e', '<cmd>lua vim.diagnostic.open_float(nil, {scope="line"})<CR>', { noremap = true, silent = true })
+vim.keymap.set('n', '<leader>e', function()
+  vim.diagnostic.open_float { border = 'rounded' }
+end, { desc = 'Floating diagnostic' })
+
 vim.api.nvim_set_keymap('n', '<leader>]', '<cmd>lua vim.diagnostic.goto_next()<CR>', { noremap = true, silent = true, desc = 'Next diagnostic' })
 vim.api.nvim_set_keymap('n', '<leader>[', '<cmd>lua vim.diagnostic.goto_prev()<CR>', { noremap = true, silent = true, desc = 'Previous diagnostic' })
 
 -- Spell-like keybindings for cspell
-local cspell_user_path = vim.fn.expand('~/.config/cspell/cspell.json')
+local cspell_user_path = vim.fn.expand '~/.config/cspell/cspell.json'
 
 vim.keymap.set('n', 'zg', function()
-  local word = vim.fn.expand('<cword>')
+  local word = vim.fn.expand '<cword>'
   local cspell = {}
 
   -- Ensure directory exists
@@ -1131,7 +1131,7 @@ vim.keymap.set('n', 'zg', function()
   -- Read existing cspell.json if it exists
   local file = io.open(cspell_user_path, 'r')
   if file then
-    local content = file:read('*a')
+    local content = file:read '*a'
     file:close()
     if content and content ~= '' then
       cspell = vim.json.decode(content) or {}
@@ -1157,11 +1157,11 @@ vim.keymap.set('n', 'zg', function()
 end, { desc = 'Add word to cspell dictionary' })
 
 vim.keymap.set('n', ']s', function()
-  vim.diagnostic.goto_next({ float = true })
+  vim.diagnostic.goto_next { float = true }
 end, { desc = 'Next spelling error' })
 
 vim.keymap.set('n', '[s', function()
-  vim.diagnostic.goto_prev({ float = true })
+  vim.diagnostic.goto_prev { float = true }
 end, { desc = 'Previous spelling error' })
 
 -- Run VSCode extension in development mode from current directory

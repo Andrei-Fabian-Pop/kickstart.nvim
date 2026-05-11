@@ -11,7 +11,8 @@ local M = { name = 'neotest-vscode-test' }
 
 ---@class VscodeTestConfig
 ---@field vscode_test_cmd? string[] Command to run vscode-test (default: {"npx", "vscode-test"})
----@field compile_cmd? string[] Command to compile tests before running (default: nil, uses compile-tests script)
+---@field compile_cmd? string[]|fun(root: string): string[]|nil Command or function returning command to compile tests
+---@field cwd? fun(root: string): string Function to determine working directory for test execution
 ---@field root_patterns? string[] Patterns to identify project root
 ---@field test_file_patterns? string[] Patterns to identify test files
 
@@ -19,6 +20,9 @@ local M = { name = 'neotest-vscode-test' }
 local config = {
   vscode_test_cmd = { 'npx', 'vscode-test' },
   compile_cmd = nil,
+  cwd = function(root)
+    return root
+  end,
   root_patterns = { '.vscode-test.mjs', '.vscode-test.js', 'package.json' },
   test_file_patterns = { '%.test%.[tj]s$', '%.spec%.[tj]s$' },
 }
@@ -41,17 +45,18 @@ function M.root(path)
   end
 
   -- Verify this is a vscode-test project
-  local vscode_test_config = root .. '/.vscode-test.mjs'
-  if vim.fn.filereadable(vscode_test_config) == 1 then
+  local f = io.open(root .. '/.vscode-test.mjs', 'r')
+  if f then
+    f:close()
     return root
   end
 
   -- Check package.json for @vscode/test-cli
-  local package_json = root .. '/package.json'
-  if vim.fn.filereadable(package_json) == 1 then
-    local lines = vim.fn.readfile(package_json)
-    local content = table.concat(lines, '\n')
-    if content:match '@vscode/test%-cli' then
+  f = io.open(root .. '/package.json', 'r')
+  if f then
+    local content = f:read '*a'
+    f:close()
+    if content and content:match '@vscode/test%-cli' then
       return root
     end
   end
@@ -63,8 +68,7 @@ end
 ---@param name string
 ---@return boolean
 function M.filter_dir(name, _, _)
-  -- Skip common non-test directories
-  local dominated_dirs = {
+  local ignored_dirs = {
     'node_modules',
     '.git',
     'dist',
@@ -72,7 +76,7 @@ function M.filter_dir(name, _, _)
     '.vscode-test',
     'coverage',
   }
-  for _, dir in ipairs(dominated_dirs) do
+  for _, dir in ipairs(ignored_dirs) do
     if name == dir then
       return false
     end
@@ -88,10 +92,8 @@ function M.is_test_file(file_path)
     return false
   end
 
-  -- Check file patterns
   for _, pattern in ipairs(config.test_file_patterns) do
     if file_path:match(pattern) then
-      -- Verify this file belongs to a vscode-test project
       local root = M.root(file_path)
       return root ~= nil
     end
@@ -191,22 +193,16 @@ function M.build_spec(args)
     return nil
   end
 
+  local cwd = config.cwd(root)
+
   -- Build grep pattern for the test
   local grep_pattern
   if position.type == 'test' then
-    -- Strip surrounding quotes from test name (treesitter captures include them)
     local test_name = position.name:gsub('^["\']', ''):gsub('["\']$', '')
-    -- Escape special regex characters in test name
     grep_pattern = test_name:gsub('([%(%)%[%]%.%*%+%?%^%$])', '\\%1')
   elseif position.type == 'namespace' then
     local ns_name = position.name:gsub('^["\']', ''):gsub('["\']$', '')
     grep_pattern = '^' .. ns_name:gsub('([%(%)%[%]%.%*%+%?%^%$])', '\\%1')
-  elseif position.type == 'file' then
-    -- Run all tests in file - use file path pattern
-    grep_pattern = nil
-  else
-    -- Run all tests
-    grep_pattern = nil
   end
 
   -- Build command
@@ -217,25 +213,15 @@ function M.build_spec(args)
     table.insert(cmd, grep_pattern)
   end
 
-  -- Check if we need to compile first
+  -- Get compile command (can be static or dynamic via function)
   local compile_cmd = config.compile_cmd
-  if not compile_cmd then
-    -- Check if compile-tests script exists in package.json
-    local package_json = root .. '/package.json'
-    if vim.fn.filereadable(package_json) == 1 then
-      local lines = vim.fn.readfile(package_json)
-      local content = table.concat(lines, '\n')
-      if content:match '"compile%-tests"' then
-        compile_cmd = { 'yarn', 'run', 'compile-tests' }
-      end
-    end
+  if type(compile_cmd) == 'function' then
+    compile_cmd = compile_cmd(root)
   end
 
   -- Create combined command with compilation
   local full_cmd
   if compile_cmd then
-    -- Chain commands: compile && test
-    -- Shell-escape each argument for sh -c
     local function shell_escape(arg)
       return "'" .. arg:gsub("'", "'\\''") .. "'"
     end
@@ -252,13 +238,12 @@ function M.build_spec(args)
 
   return {
     command = full_cmd,
-    cwd = root,
+    cwd = cwd,
     context = {
       position = position,
       root = root,
     },
     env = {
-      -- Disable color codes for easier parsing
       FORCE_COLOR = '0',
       NO_COLOR = '1',
     },
@@ -271,17 +256,13 @@ end
 local function parse_mocha_output(output)
   local results = {}
 
-  -- Match passing tests: "✓ test name" or "√ test name" (Windows)
   for test_name in output:gmatch '[✓√]%s+(.-)%s*\n' do
-    test_name = test_name:gsub('%s*%(.-%)%s*$', '') -- Remove timing info
+    test_name = test_name:gsub('%s*%(.-%)%s*$', '')
     results[test_name] = { status = 'passed' }
   end
 
-  -- Match failing tests: "1) test name" or "  1) test name"
-  -- Mocha indents failed test names with number prefix
   for test_name in output:gmatch '%s+%d+%)%s+([^\n]+)' do
-    test_name = test_name:gsub('%s+$', '') -- Trim trailing whitespace
-    -- Find the error message after "AssertionError" or similar
+    test_name = test_name:gsub('%s+$', '')
     local error_msg = output:match 'AssertionError[^\n]*:%s*([^\n]+)' or output:match 'Error:%s*([^\n]+)'
     results[test_name] = {
       status = 'failed',
@@ -289,12 +270,10 @@ local function parse_mocha_output(output)
     }
   end
 
-  -- Match skipped tests: "- test name"
   for test_name in output:gmatch '%s%-%s+(.-)%s*\n' do
     results[test_name] = { status = 'skipped' }
   end
 
-  -- Parse counts: "X passing" and "X failing"
   local passing_count = tonumber(output:match '(%d+) passing') or 0
   local failing_count = tonumber(output:match '(%d+) failing') or 0
 
@@ -315,7 +294,6 @@ local function process_node(node, parsed, passing_count, failing_count, output_p
   end
 
   if pos.type == 'test' then
-    -- Try to find matching result
     local test_result = parsed[pos.name]
 
     if test_result then
@@ -325,25 +303,21 @@ local function process_node(node, parsed, passing_count, failing_count, output_p
         output = output_path,
       }
     elseif failing_count > 0 and passing_count == 0 then
-      -- Only failures, no passes - mark as failed
       results[pos.id] = {
         status = 'failed',
         output = output_path,
       }
     elseif passing_count > 0 and failing_count == 0 then
-      -- Only passes, no failures - mark as passed
       results[pos.id] = {
         status = 'passed',
         output = output_path,
       }
     elseif failing_count > 0 then
-      -- Mixed results but we couldn't parse - assume failed to be safe
       results[pos.id] = {
         status = 'failed',
         output = output_path,
       }
     else
-      -- No results found
       results[pos.id] = {
         status = 'skipped',
         output = output_path,
@@ -351,29 +325,27 @@ local function process_node(node, parsed, passing_count, failing_count, output_p
     end
   end
 
-  -- Process children
   local children = node:children()
   for _, child in ipairs(children) do
     process_node(child, parsed, passing_count, failing_count, output_path, results)
   end
 
-  -- Aggregate status for namespaces/files after children are processed
   if pos.type == 'file' or pos.type == 'namespace' then
-    local dominated_status = 'passed'
+    local aggregated_status = 'passed'
     for _, child in ipairs(children) do
       local child_pos = child:data()
       if child_pos and results[child_pos.id] then
         local child_status = results[child_pos.id].status
         if child_status == 'failed' then
-          dominated_status = 'failed'
+          aggregated_status = 'failed'
           break
-        elseif child_status == 'skipped' and dominated_status ~= 'failed' then
-          dominated_status = 'skipped'
+        elseif child_status == 'skipped' and aggregated_status ~= 'failed' then
+          aggregated_status = 'skipped'
         end
       end
     end
     results[pos.id] = {
-      status = dominated_status,
+      status = aggregated_status,
       output = output_path,
     }
   end
@@ -395,7 +367,6 @@ function M.results(_, result, tree)
   local output = lib.files.read(output_path) or ''
   local parsed, passing_count, failing_count = parse_mocha_output(output)
 
-  -- Process the tree recursively
   process_node(tree, parsed, passing_count, failing_count, output_path, results)
 
   return results

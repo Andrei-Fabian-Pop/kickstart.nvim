@@ -339,7 +339,6 @@ require('lazy').setup({
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
-    branch = '0.1.x',
     dependencies = {
       'nvim-lua/plenary.nvim',
       { -- If encountering errors, see telescope-fzf-native README for installation instructions
@@ -621,20 +620,18 @@ require('lazy').setup({
             '--fallback-style=llvm',
             '--pch-storage=memory', -- Speeds up analysis
             '--enable-config',
+            '--query-driver=**',
           },
           init_options = {
             -- fallbackFlags = { '-std=c++17' },
             usePlaceholders = true,
             clangdFileStatus = true,
           },
-          --  keys = {
-          --    { ',a', '<cmd>ClangdSwitchSourceHeader<cr>', desc = 'Switch Source/Header (C/C++)' },
-          --  },
-          --  root_dir = function(fname)
-          --    return require('lspconfig.util').root_pattern('Makefile', 'CMakeLists.txt', 'configure.ac', 'configure.in', 'meson.build', 'build.ninja')(fname)
-          --      or require('lspconfig.util').root_pattern('compile_commands.json', 'compile_flags.txt')(fname)
-          --      or require('lspconfig.util').find_git_ancestor(fname)
-          --  end,
+          root_dir = function(fname)
+            return require('lspconfig.util').root_pattern('compile_commands.json', 'compile_flags.txt')(fname)
+              or require('lspconfig.util').root_pattern('Makefile', 'CMakeLists.txt', 'configure.ac', 'configure.in', 'meson.build', 'build.ninja')(fname)
+              or require('lspconfig.util').find_git_ancestor(fname)
+          end,
           --  capabilities = {
           --    offsetEncoding = { 'utf-16' },
           --  },
@@ -714,6 +711,15 @@ require('lazy').setup({
           end,
         },
       }
+
+      -- Explicit clangd setup for system clangd (not managed by Mason)
+      vim.lsp.config('clangd', {
+        cmd = servers.clangd.cmd,
+        root_markers = { 'compile_commands.json', 'compile_flags.txt', '.git' },
+        capabilities = vim.tbl_deep_extend('force', {}, capabilities, servers.clangd.capabilities or {}),
+        init_options = servers.clangd.init_options,
+      })
+      vim.lsp.enable 'clangd'
     end,
   },
 
@@ -907,7 +913,12 @@ require('lazy').setup({
   },
 
   -- Highlight todo, notes, etc in comments
-  { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+  {
+    'folke/todo-comments.nvim',
+    event = 'VimEnter',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    opts = { signs = false },
+  },
 
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
@@ -963,7 +974,7 @@ require('lazy').setup({
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
+    main = 'nvim-treesitter.config', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
       ensure_installed = {
